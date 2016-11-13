@@ -1,46 +1,36 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+#include <WiFiUDP.h>
+#include "DHT.h"
 
 const char* ssid = "ELTEX-85A8";
 const char* password = "GP21277678";
-MDNSResponder mdns;
+const char* statsdsIP = "192.168.1.7";
+const int statsdsPort = 4000;
 
-ESP8266WebServer server(80);
+const int STATSD_PACKET_SIZE = 48;
+byte statsdPacketBuffer[STATSD_PACKET_SIZE];
+struct {
+  const char* temperature = "temperature";
+  const char* humidity = "humidity";
+} statsOptions;
+
+#define DHTPIN 2
+#define DHTTYPE DHT22
 
 const int led = 13;
 
-void handleRoot() {
-  digitalWrite(led, 1);
-  server.send(200, "text/plain", "hello from esp8266!");
-  digitalWrite(led, 0);
-}
-
-void handleNotFound(){
-  digitalWrite(led, 1);
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET)?"GET":"POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i=0; i<server.args(); i++){
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
-  digitalWrite(led, 0);
-}
+WiFiUDP udp;
+DHT dht(DHTPIN, DHTTYPE);
 
 void setup(void){
   pinMode(led, OUTPUT);
   digitalWrite(led, 0);
   Serial.begin(115200);
+  Serial.println("Before connect to wifi");
   WiFi.begin(ssid, password);
-  Serial.println("");
+  Serial.println("Connecting to wifi");
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
@@ -53,22 +43,35 @@ void setup(void){
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  if (mdns.begin("esp8266", WiFi.localIP())) {
-    Serial.println("MDNS responder started");
+  Serial.println("Termometer started");
+  dht.begin();
+}
+
+void sendStatsdData(const char* key, float value) {
+  if (isnan(value)) {
+    Serial.print("can not write ");
+    Serial.print(key);
+    Serial.println("");
+    return;
   }
+  memset(statsdPacketBuffer, 0, STATSD_PACKET_SIZE);
+  sprintf((char*)statsdPacketBuffer, "%s|%i\n", key, value);
 
-  server.on("/", handleRoot);
-
-  server.on("/inline", [](){
-    server.send(200, "text/plain", "this works as well");
-  });
-
-  server.onNotFound(handleNotFound);
-
-  server.begin();
-  Serial.println("HTTP server started");
+  udp.beginPacket(statsdsIP, statsdsPort);
+  udp.write(statsdPacketBuffer, STATSD_PACKET_SIZE);
+  udp.endPacket();
 }
 
 void loop(void){
-  server.handleClient();
+  float humidity;
+  float temperatureCelsius;
+
+  while(true) {
+    delay(500);
+    Serial.println("working...");
+    humidity = dht.readHumidity();
+    temperatureCelsius = dht.readTemperature();
+    sendStatsdData(statsOptions.temperature, temperatureCelsius);
+    sendStatsdData(statsOptions.humidity, humidity);
+  }
 }
