@@ -16,7 +16,7 @@ struct {
   const char* humidity = "humidity";
 } statsOptions;
 
-#define DHTPIN 2
+#define DHTPIN SCL
 #define DHTTYPE DHT22
 
 const int led = 13;
@@ -55,7 +55,8 @@ void sendStatsdData(const char* key, float value) {
     return;
   }
   memset(statsdPacketBuffer, 0, STATSD_PACKET_SIZE);
-  sprintf((char*)statsdPacketBuffer, "%s|%i\n", key, value);
+  Serial.println(value);
+  sprintf((char*)statsdPacketBuffer, "%s|%i\n", key, (int)value);
 
   udp.beginPacket(statsdsIP, statsdsPort);
   udp.write(statsdPacketBuffer, STATSD_PACKET_SIZE);
