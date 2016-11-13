@@ -7,7 +7,7 @@
 const char* ssid = "ELTEX-85A8";
 const char* password = "GP21277678";
 const char* statsdsIP = "192.168.1.7";
-const int statsdsPort = 4000;
+const int statsdsPort = 8125;
 
 const int STATSD_PACKET_SIZE = 48;
 byte statsdPacketBuffer[STATSD_PACKET_SIZE];
@@ -56,7 +56,7 @@ void sendStatsdData(const char* key, float value) {
   }
   memset(statsdPacketBuffer, 0, STATSD_PACKET_SIZE);
   Serial.println(value);
-  sprintf((char*)statsdPacketBuffer, "%s|%i\n", key, (int)value);
+  sprintf((char*)statsdPacketBuffer, "%s:%i|g\n", key, (int)value);
 
   udp.beginPacket(statsdsIP, statsdsPort);
   udp.write(statsdPacketBuffer, STATSD_PACKET_SIZE);
