@@ -4,9 +4,9 @@
 #include <WiFiUDP.h>
 #include "DHT.h"
 
-const char* ssid = "ELTEX-85A8";
-const char* password = "GP21277678";
-const char* statsdsIP = "192.168.1.7";
+const char* ssid = "*******";
+const char* password = "*******";
+const char* statsdsIP = "*******";
 const int statsdsPort = 8125;
 
 const int STATSD_PACKET_SIZE = 48;
