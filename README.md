@@ -9,7 +9,7 @@ To use this project you needs *espressif8266*-based board, *DHT22* sensor (or *D
 [platformio IDE](http://platformio.org/) and [statsd](https://github.com/etsy/statsd)-powered server.
 
 Then you should connect the sensor with the board - I've used
-[a instraction](https://learn.adafruit.com/dht/connecting-to-a-dhtxx-sensor).
+[a instruction](https://learn.adafruit.com/dht/connecting-to-a-dhtxx-sensor).
 
 The major step is setup the settings in `src/main.ino`:
 
