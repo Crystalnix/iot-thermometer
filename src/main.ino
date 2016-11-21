@@ -55,8 +55,14 @@ void sendStatsdData(const char* key, float value) {
     return;
   }
   memset(statsdPacketBuffer, 0, STATSD_PACKET_SIZE);
-  Serial.println(value);
-  sprintf((char*)statsdPacketBuffer, "%s:%i|g\n", key, (int)value);
+
+  char str_value[6];
+
+  /* 4 is mininum width, 2 is precision; float value is copied onto str_temp*/
+  dtostrf(value, 4, 2, str_value);
+
+  Serial.println(str_value);
+  sprintf((char*)statsdPacketBuffer, "%s:%s|g\n", key, str_value);
 
   udp.beginPacket(statsdsIP, statsdsPort);
   udp.write(statsdPacketBuffer, STATSD_PACKET_SIZE);
