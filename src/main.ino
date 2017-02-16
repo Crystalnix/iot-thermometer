@@ -19,6 +19,8 @@ struct {
 #define DHTPIN SCL
 #define DHTTYPE DHT22
 
+#define DELAY_PERIOD 10*1000
+
 const int led = 13;
 
 WiFiUDP udp;
@@ -74,7 +76,7 @@ void loop(void){
   float temperatureCelsius;
 
   while(true) {
-    delay(500);
+    delay(DELAY_PERIOD);
     Serial.println("working...");
     humidity = dht.readHumidity();
     temperatureCelsius = dht.readTemperature();
