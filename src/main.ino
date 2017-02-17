@@ -4,6 +4,10 @@
 #include <WiFiUDP.h>
 #include "DHT.h"
 
+extern "C" {
+  #include "user_interface.h"
+}
+
 const char* ssid = "*******";
 const char* password = "*******";
 const char* statsdsIP = "*******";
@@ -12,14 +16,14 @@ const int statsdsPort = 8125;
 const int STATSD_PACKET_SIZE = 48;
 byte statsdPacketBuffer[STATSD_PACKET_SIZE];
 struct {
-  const char* temperature = "temperature";
-  const char* humidity = "humidity";
+  const char* temperature = "sleep.temperature";
+  const char* humidity = "sleep.humidity";
 } statsOptions;
 
-#define DHTPIN SCL
-#define DHTTYPE DHT22
+#define DHTPIN D4
+#define DHTTYPE DHT11
 
-#define DELAY_PERIOD 10*1000
+#define DELAY_SECONDS_PERIOD 60
 
 const int led = 13;
 
@@ -30,28 +34,51 @@ void setup(void){
   pinMode(led, OUTPUT);
   digitalWrite(led, 0);
   Serial.begin(115200);
-  Serial.println("Before connect to wifi");
-  WiFi.begin(ssid, password);
-  Serial.println("Connecting to wifi");
-
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
 
   Serial.println("Termometer started");
   dht.begin();
 }
 
+void loop(void) {
+  float humidity;
+  float temperatureCelsius;
+
+  sleep();
+  humidity = dht.readHumidity();
+  temperatureCelsius = dht.readTemperature();
+
+  wake();
+  sendStatsdData(statsOptions.temperature, temperatureCelsius);
+  sendStatsdData(statsOptions.humidity, humidity);
+}
+
+void sleep() {
+  WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
+  WiFi.disconnect();
+  WiFi.mode(WIFI_OFF);
+  wifi_fpm_open(); // Enables force sleep
+  wifi_fpm_do_sleep(DELAY_SECONDS_PERIOD*1000000);
+
+  delay(DELAY_SECONDS_PERIOD*1000);
+}
+
+void wake() {
+  WiFi.forceSleepWake();
+  connectWiFi();
+}
+
+void connectWiFi(){
+  WiFi.begin(ssid, password);
+
+  // Wait for connection
+  int connRes = WiFi.waitForConnectResult();
+  Serial.print ( "WiFi connRes: " );
+  Serial.println ( connRes );
+}
+
 void sendStatsdData(const char* key, float value) {
   if (isnan(value)) {
-    Serial.print("can not write ");
+    Serial.print("will not send empty data");
     Serial.print(key);
     Serial.println("");
     return;
@@ -66,21 +93,7 @@ void sendStatsdData(const char* key, float value) {
   Serial.println(str_value);
   sprintf((char*)statsdPacketBuffer, "%s:%s|g\n", key, str_value);
 
-  udp.beginPacket(statsdsIP, statsdsPort);
+  int error = udp.beginPacket(statsdsIP, statsdsPort);
   udp.write(statsdPacketBuffer, STATSD_PACKET_SIZE);
-  udp.endPacket();
-}
-
-void loop(void){
-  float humidity;
-  float temperatureCelsius;
-
-  while(true) {
-    delay(DELAY_PERIOD);
-    Serial.println("working...");
-    humidity = dht.readHumidity();
-    temperatureCelsius = dht.readTemperature();
-    sendStatsdData(statsOptions.temperature, temperatureCelsius);
-    sendStatsdData(statsOptions.humidity, humidity);
-  }
+  error = udp.endPacket();
 }
