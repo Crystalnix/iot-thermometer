@@ -3,6 +3,10 @@
 #include <WiFiClient.h>
 #include <WiFiUDP.h>
 #include "DHT.h"
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 extern "C" {
   #include "user_interface.h"
@@ -19,11 +23,14 @@ struct {
   const char* humidity = "office.sensor.2.humidity";
 } statsOptions;
 
-#define DHTPIN SCL
-#define DHTTYPE DHT22
+#define DHTPIN D4
+#define DHTTYPE DHT11
 #define DELAY_SECONDS_PERIOD 60
 
 const int led = 13;
+
+#define OLED_RESET 0  // GPIO0
+Adafruit_SSD1306 display(OLED_RESET);
 
 WiFiUDP udp;
 DHT dht(DHTPIN, DHTTYPE);
@@ -35,6 +42,8 @@ void setup(void){
 
   Serial.println("Thermometer started");
   dht.begin();
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  showOnDisplay(0, 0);
 }
 
 void loop(void) {
@@ -45,9 +54,13 @@ void loop(void) {
   humidity = dht.readHumidity();
   temperatureCelsius = dht.readTemperature();
 
-  wake();
-  sendStatsdData(statsOptions.temperature, temperatureCelsius);
-  sendStatsdData(statsOptions.humidity, humidity);
+  Serial.println(humidity);
+  Serial.println(temperatureCelsius);
+
+  // wake();
+  // sendStatsdData(statsOptions.temperature, temperatureCelsius);
+  // sendStatsdData(statsOptions.humidity, humidity);
+  showOnDisplay(humidity, temperatureCelsius);
 }
 
 void sleep() {
@@ -98,4 +111,29 @@ void sendStatsdData(const char* key, float value) {
   error = udp.endPacket(); // 1 for OK
   Serial.print("end packet ");
   Serial.println(error);
+}
+
+#if (SSD1306_LCDHEIGHT != 48)
+#error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#endif
+
+void showOnDisplay(float humidity, float temperatureCelsius)   {
+  char str_value[6];
+  if (isnan(humidity) || isnan(temperatureCelsius)) {
+    return;
+  }
+
+  display.clearDisplay();
+
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 0);
+
+  dtostrf(humidity, 2, 0, str_value);
+  display.print("H:"); display.print(str_value); display.println('%');
+
+  dtostrf(temperatureCelsius, 2, 0, str_value);
+  display.print("t:"); display.print(str_value); display.println('C');
+
+  display.display();
 }
